@@ -226,13 +226,13 @@ if target.unit then -- unitDB [data]
   while query:fetch(creature_template, "a") do
     progress:Print("creature_template", "unitDB (data)")
 
-    local entry   = creature_template.entry
-    local minlvl  = creature_template.minlevel
-    local maxlvl  = creature_template.maxlevel
+    local entry   = creature_template.entry or creature_template.Entry
+    local minlvl  = creature_template.minlevel or creature_template.MinLevel
+    local maxlvl  = creature_template.maxlevel or creature_template.MaxLevel
     local lvl     = (minlvl == maxlvl) and minlvl or minlvl .. "-" .. maxlvl
-    local rnk     = creature_template.rank
+    local rnk     = creature_template.rank or creature_template.Rank
 
-    file:write("  [" .. entry .. "] = { -- " .. creature_template.name .. "\n")
+    file:write("  [" .. entry .. "] = { -- " .. (creature_template.name or creature_template.Name) .. "\n")
     file:write("    [\"lvl\"] = \"" .. lvl .. "\",\n")
 
     if tonumber(rnk) > 0 then
@@ -245,9 +245,16 @@ if target.unit then -- unitDB [data]
       local sql = [[
         SELECT A FROM creature_template, aowow.aowow_factiontemplate
         WHERE aowow.aowow_factiontemplate.factiontemplateID = creature_template.faction_A
-        AND creature_template.entry = ]] .. creature_template.entry
+        AND creature_template.entry = ]] .. entry
 
       local query = mysql:execute(sql)
+      if not query then
+        sql = [[
+          SELECT A FROM creature_template, aowow.aowow_factiontemplate
+          WHERE aowow.aowow_factiontemplate.factiontemplateID = creature_template.FactionAlliance
+          AND creature_template.entry = ]] .. entry
+        query = mysql:execute(sql)
+      end
       while query:fetch(faction, "a") do
         local A = faction.A
         if A == "1" then fac = fac .. "A" end
@@ -257,9 +264,16 @@ if target.unit then -- unitDB [data]
       local sql = [[
         SELECT H FROM creature_template, aowow.aowow_factiontemplate
         WHERE aowow.aowow_factiontemplate.factiontemplateID = creature_template.faction_H
-        AND creature_template.entry = ]] .. creature_template.entry
+        AND creature_template.entry = ]] .. entry
 
       local query = mysql:execute(sql)
+      if not query then
+        sql = [[
+          SELECT H FROM creature_template, aowow.aowow_factiontemplate
+          WHERE aowow.aowow_factiontemplate.factiontemplateID = creature_template.FactionHorde
+          AND creature_template.entry = ]] .. entry
+        query = mysql:execute(sql)
+      end
       while query:fetch(faction, "a") do
         local H = faction.H
         if H == "1" then fac = fac .. "H" end
@@ -284,14 +298,20 @@ if target.unit then -- unitDB [data]
 
       -- search for summoned mobs
       local event_scripts = {}
-      local query = mysql:execute('SELECT * FROM event_scripts WHERE event_scripts.datalong = ' .. creature_template.entry)
+      local query = mysql:execute('SELECT * FROM event_scripts WHERE event_scripts.datalong = ' .. entry)
+      if not query then
+        query = mysql:execute('SELECT * FROM dbscripts_on_event WHERE dbscripts_on_event.datalong = ' .. entry)
+      end
       while query:fetch(event_scripts, "a") do
         local script = event_scripts.datalong
 
         local spell_template = {}
         local query = mysql:execute('SELECT * FROM spell_template WHERE spell_template.requiresSpellFocus > 0 AND spell_template.effectMiscValue1 = ' .. event_scripts.id)
+        if not query then
+          local query = mysql:execute('SELECT * FROM spell_template WHERE spell_template.RequiresSpellFocus > 0 AND spell_template.EffectMiscValue1 = ' .. event_scripts.id)
+        end
         while query:fetch(spell_template, "a") do
-          local spellfocus = spell_template.requiresSpellFocus
+          local spellfocus = spell_template.requiresSpellFocus or spell_template.RequiresSpellFocus
 
           local gameobject_template = {}
           local query = mysql:execute('SELECT * FROM gameobject_template WHERE gameobject_template.type = 8 and gameobject_template.data0 = ' .. spellfocus)
